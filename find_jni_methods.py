@@ -129,7 +129,10 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
             if param_idx in params:
                 param_types.append(params[param_idx])
             else:
-                param_types.append(param_var.type)
+                if param_var.type is None:
+                    param_types.append(Type.int(4))
+                else:
+                    param_types.append(param_var.type)
 
         return Type.function(out_type, param_types)
 
