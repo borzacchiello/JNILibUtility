@@ -75,44 +75,46 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
             print_err("[!] \".data\" is not a section")
             return
 
-        data_section = self.bv.sections[".data"]
+        sections = [".data", ".rodata"]
+        for section_name in sections:
+            data_section = self.bv.sections[section_name]
 
-        i = 0
-        n_addresses = data_section.end - data_section.start
-        for addr in range(data_section.start, data_section.end):
-            i += 1
-            self.update_progress("dynamic", i, n_addresses)
+            i = 0
+            n_addresses = data_section.end - data_section.start
+            for addr in range(data_section.start, data_section.end):
+                i += 1
+                self.update_progress("dynamic", i, n_addresses)
 
-            if not self.is_pointer(addr):
-                continue
-            method_name_ptr = self.read_pointer(addr)
-            method_name = self.get_string(method_name_ptr)
-            if method_name is None:
-                continue
+                if not self.is_pointer(addr):
+                    continue
+                method_name_ptr = self.read_pointer(addr)
+                method_name = self.get_string(method_name_ptr)
+                if method_name is None:
+                    continue
 
-            if not self.is_pointer(addr + self.bv.arch.address_size):
-                continue
-            method_signature_ptr = self.read_pointer(addr + self.bv.arch.address_size)
-            method_signature = self.get_string(method_signature_ptr)
-            if method_signature is None:
-                continue
-            if "(" not in method_signature or ")" not in method_signature:
-                continue
+                if not self.is_pointer(addr + self.bv.arch.address_size):
+                    continue
+                method_signature_ptr = self.read_pointer(addr + self.bv.arch.address_size)
+                method_signature = self.get_string(method_signature_ptr)
+                if method_signature is None:
+                    continue
+                if "(" not in method_signature or ")" not in method_signature:
+                    continue
 
-            if not self.is_pointer(addr + self.bv.arch.address_size*2):
-                continue
-            method_ptr = self.read_pointer(addr + self.bv.arch.address_size*2)
-            if self.bv.get_function_at(method_ptr) is None:
-                continue
+                if not self.is_pointer(addr + self.bv.arch.address_size*2):
+                    continue
+                method_ptr = self.read_pointer(addr + self.bv.arch.address_size*2)
+                if self.bv.get_function_at(method_ptr) is None:
+                    continue
 
-            self.jni_functions.append(self.bv.get_function_at(method_ptr))
+                self.jni_functions.append(self.bv.get_function_at(method_ptr))
 
-            self.bv.define_user_symbol(Symbol(SymbolType.DataSymbol, addr, f"{method_name}_struct"))
-            self.bv.define_user_data_var(addr, self.bv.types["JNINativeMethod"])
-            self.bv.define_user_data_var(method_name_ptr,
-                Type.array(Type.char(), len(self.get_string(method_name_ptr)) + 1))
-            self.bv.define_user_data_var(method_signature_ptr,
-                Type.array(Type.char(), len(self.get_string(method_signature_ptr)) + 1))
+                self.bv.define_user_symbol(Symbol(SymbolType.DataSymbol, addr, f"{method_name}_struct"))
+                self.bv.define_user_data_var(addr, self.bv.types["JNINativeMethod"])
+                self.bv.define_user_data_var(method_name_ptr,
+                    Type.array(Type.char(), len(self.get_string(method_name_ptr)) + 1))
+                self.bv.define_user_data_var(method_signature_ptr,
+                    Type.array(Type.char(), len(self.get_string(method_signature_ptr)) + 1))
 
     def find_static_jni(self):
         n_functions = len(self.bv.functions)
@@ -161,3 +163,5 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
         self.find_static_jni()
 
         self.apply_types()
+
+        print("Found %d JNI functions" % len(self.jni_functions))
