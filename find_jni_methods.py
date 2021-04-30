@@ -71,12 +71,11 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
         self.jni_onload = self.bv.get_function_at(
             jni_onload_symbol.address)
 
-        if ".data" not in self.bv.sections:
-            print_err("[!] \".data\" is not a section")
-            return
-
         sections = [".data", ".rodata"]
         for section_name in sections:
+            if section_name not in self.bv.sections:
+                print_err("[+] \"%s\" is not a section" % section_name)
+                continue
             data_section = self.bv.sections[section_name]
 
             i = 0
