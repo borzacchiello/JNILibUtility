@@ -152,7 +152,7 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
             fun.set_user_type(fun_type)
 
         if self.jni_onload is not None:
-            fun_type = FindJNIFunctionAnalysis._build_function_type(fun, {0: javavm_ptr_type})
+            fun_type = FindJNIFunctionAnalysis._build_function_type(self.jni_onload, {0: javavm_ptr_type})
             self.jni_onload.set_user_type(fun_type)
 
     def run(self):

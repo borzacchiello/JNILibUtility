@@ -440,7 +440,7 @@ struct JNIInvokeInterface {
     jint        (*DestroyJavaVM)(JavaVM*);
     jint        (*AttachCurrentThread)(JavaVM*, JNIEnv**, void*);
     jint        (*DetachCurrentThread)(JavaVM*);
-    jint        (*GetEnv)(JavaVM*, void**, jint);
+    jint        (*GetEnv)(JavaVM*, JNIEnv**, jint);
     jint        (*AttachCurrentThreadAsDaemon)(JavaVM*, JNIEnv**, void*);
 };
 
