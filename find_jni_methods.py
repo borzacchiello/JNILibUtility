@@ -1,7 +1,9 @@
 import sys
 import os
 
-from binaryninja import SymbolType, Endianness, Type, BackgroundTaskThread, Symbol, SymbolType
+from binaryninja import (
+    SymbolType, Endianness, Type, BackgroundTaskThread,
+    Symbol, SymbolType, Architecture)
 
 SCRIPTDIR  = os.path.dirname(os.path.realpath(__file__))
 JNI_ONLOAD = "JNI_OnLoad"
@@ -68,8 +70,9 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
             print_err(f"[!] \"{JNI_ONLOAD}\" is not a function")
             return
 
-        self.jni_onload = self.bv.get_function_at(
-            jni_onload_symbol.address)
+        funcs = self.bv.get_functions_at(jni_onload_symbol.address)
+        if len(funcs) > 0:
+            self.jni_onload = funcs[0]
 
         sections = [".data", ".rodata"]
         for section_name in sections:
@@ -95,18 +98,28 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
                     continue
                 method_signature_ptr = self.read_pointer(addr + self.bv.arch.address_size)
                 method_signature = self.get_string(method_signature_ptr)
-                if method_signature is None:
+                if method_signature is None or len(method_signature) == 0:
                     continue
-                if "(" not in method_signature or ")" not in method_signature:
+                if method_signature[0] != "(" or ")" not in method_signature:
                     continue
 
                 if not self.is_pointer(addr + self.bv.arch.address_size*2):
                     continue
                 method_ptr = self.read_pointer(addr + self.bv.arch.address_size*2)
-                if self.bv.get_function_at(method_ptr) is None:
-                    continue
 
-                self.jni_functions.append(self.bv.get_function_at(method_ptr))
+                funcs = self.bv.get_functions_at(method_ptr)
+                if len(funcs) == 0:
+                    # Create the function
+                    plat = None
+                    if self.bv.arch.name == "armv7" and method_ptr % 2 == 1:
+                        thumb2 = Architecture["thumb2"]
+                        plat   = self.bv.platform.get_related_platform(thumb2)
+                        method_ptr -= 1
+                    self.bv.create_user_function(method_ptr, plat)
+                    funcs = self.bv.get_functions_at(method_ptr)
+
+                fun = funcs[0]
+                self.jni_functions.append(fun)
 
                 self.bv.define_user_symbol(Symbol(SymbolType.DataSymbol, addr, f"{method_name}_struct"))
                 self.bv.define_user_data_var(addr, self.bv.types["JNINativeMethod"])
@@ -152,6 +165,7 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
 
         if self.jni_onload is not None:
             fun_type = FindJNIFunctionAnalysis._build_function_type(self.jni_onload, {0: javavm_ptr_type})
+            print("Setting function type of", self.jni_onload, "to ", fun_type)
             self.jni_onload.set_user_type(fun_type)
 
     def run(self):
