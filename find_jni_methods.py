@@ -3,7 +3,7 @@ import os
 
 from binaryninja import (
     SymbolType, Endianness, Type, BackgroundTaskThread,
-    Symbol, SymbolType, Architecture)
+    Symbol, SymbolType, Architecture, SectionSemantics)
 
 SCRIPTDIR  = os.path.dirname(os.path.realpath(__file__))
 JNI_ONLOAD = "JNI_OnLoad"
@@ -19,8 +19,28 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
         self.jni_functions = list()
         self.jni_onload = None
 
+        self.code_sections = list()
+        self.data_sections = list()
+        for s_name in self.bv.sections:
+            s = self.bv.sections[s_name]
+            if s.semantics in {
+                SectionSemantics.ReadOnlyCodeSectionSemantics
+            }:
+                self.code_sections.append((s_name, s.start, s.end))
+            elif s.semantics in {
+                SectionSemantics.ReadWriteDataSectionSemantics,
+                SectionSemantics.ReadOnlyDataSectionSemantics
+            }:
+                self.data_sections.append((s_name, s.start, s.end))
+
     def update_progress(self, phase_name, curr, total):
         self.progress = f"Finding JNI Functions ({phase_name}): {curr} / {total}"
+
+    def is_ptr_to_code(self, addr):
+        for _, begin, end in self.code_sections:
+            if begin <= addr < end:
+                return True
+        return False
 
     def is_pointer(self, addr):
         return self.bv.read(addr, 1) != b""
@@ -74,18 +94,23 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
         if len(funcs) > 0:
             self.jni_onload = funcs[0]
 
-        sections = [".data", ".rodata"]
-        for section_name in sections:
-            if section_name not in self.bv.sections:
-                print_err("[+] \"%s\" is not a section" % section_name)
-                continue
-            data_section = self.bv.sections[section_name]
+        csec_i          = 0
+        n_data_sections = len(self.data_sections)
+        for section_name, start, end in self.data_sections:
+            csec_i += 1
+            caddr_i = 0
+            n_addresses = end - start
+            for addr in range(start, end):
+                caddr_i += 1
+                self.update_progress(
+                    " dynamic : sec \"%s\" %d/%d " % (section_name, csec_i, n_data_sections), caddr_i, n_addresses)
 
-            i = 0
-            n_addresses = data_section.end - data_section.start
-            for addr in range(data_section.start, data_section.end):
-                i += 1
-                self.update_progress("dynamic", i, n_addresses)
+                if not self.is_pointer(addr + self.bv.arch.address_size*2):
+                    continue
+
+                method_ptr = self.read_pointer(addr + self.bv.arch.address_size*2)
+                if not self.is_ptr_to_code(method_ptr):
+                    continue
 
                 if not self.is_pointer(addr):
                     continue
@@ -102,10 +127,6 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
                     continue
                 if method_signature[0] != "(" or ")" not in method_signature:
                     continue
-
-                if not self.is_pointer(addr + self.bv.arch.address_size*2):
-                    continue
-                method_ptr = self.read_pointer(addr + self.bv.arch.address_size*2)
 
                 funcs = self.bv.get_functions_at(method_ptr)
                 if len(funcs) == 0:
