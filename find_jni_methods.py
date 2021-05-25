@@ -140,7 +140,7 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
                     funcs = self.bv.get_functions_at(method_ptr)
 
                 self.bv.define_user_symbol(
-                    Symbol(SymbolType.FunctionSymbol, method_ptr, f"JNI_FUN_{method_name}"))
+                    Symbol(SymbolType.FunctionSymbol, method_ptr, f"JNI_FUN_{method_name}_{method_ptr:x}"))
 
                 fun = funcs[0]
                 self.jni_functions.append(fun)
