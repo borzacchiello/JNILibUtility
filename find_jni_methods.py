@@ -85,7 +85,7 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
             print_err(f"[!] \"{JNI_ONLOAD}\" not in symbols")
             return
 
-        jni_onload_symbol = self.bv.symbols[JNI_ONLOAD][0]
+        jni_onload_symbol = self.bv.symbols[JNI_ONLOAD]
         if jni_onload_symbol.type != SymbolType.FunctionSymbol:
             print_err(f"[!] \"{JNI_ONLOAD}\" is not a function")
             return
