@@ -82,17 +82,15 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
 
     def find_dynamic_jni(self):
         if JNI_ONLOAD not in self.bv.symbols:
-            print_err(f"[!] \"{JNI_ONLOAD}\" not in symbols")
-            return
-
-        jni_onload_symbol = self.bv.symbols[JNI_ONLOAD]
-        if jni_onload_symbol.type != SymbolType.FunctionSymbol:
-            print_err(f"[!] \"{JNI_ONLOAD}\" is not a function")
-            return
-
-        funcs = self.bv.get_functions_at(jni_onload_symbol.address)
-        if len(funcs) > 0:
-            self.jni_onload = funcs[0]
+            print(f"[!] \"{JNI_ONLOAD}\" not in symbols")
+        else:
+            jni_onload_symbol = self.bv.symbols[JNI_ONLOAD][0]
+            if jni_onload_symbol.type != SymbolType.FunctionSymbol:
+                print(f"[!] \"{JNI_ONLOAD}\" is not a function")
+            else:
+                funcs = self.bv.get_functions_at(jni_onload_symbol.address)
+                if len(funcs) > 0:
+                    self.jni_onload = funcs[0]
 
         csec_i          = 0
         n_data_sections = len(self.data_sections)
