@@ -22,6 +22,9 @@ class FindJNIFunctionAnalysis(BackgroundTaskThread):
         self.code_sections = list()
         self.data_sections = list()
         for s_name in self.bv.sections:
+            if s_name == ".bss":
+                continue
+
             s = self.bv.sections[s_name]
             if s.semantics in {
                 SectionSemantics.ReadOnlyCodeSectionSemantics
